@@ -390,7 +390,7 @@ class Trainer(object):
             os.makedirs(output_path)
 
 
-    def train(self, data_provider, output_path, training_iters=10, epochs=100,
+    def train(self, data_provider, output_path, training_iters, epochs,
             dropout=0.75, display_step=1, restore=False, write_graph=False,
             prediction_path='prediction'):
         """
@@ -425,6 +425,8 @@ class Trainer(object):
 
             #test_x, test_y = next(data_provider)
             #pred_shape = self.store_prediction(sess, test_x, test_y, "_init")
+
+            # TODO: remove hard coded
             pred_shape = (56, 104, 104, 1)
 
             summary_writer = tf.summary.FileWriter(output_path, graph=sess.graph)
@@ -439,25 +441,29 @@ class Trainer(object):
 
                     # Run optimization op (backprop)
                     _, loss, lr, gradients = sess.run(
-                        (self.optimizer, self.net.cost, self.learning_rate_node, self.net.gradients_node),
+                        (self.optimizer, self.net.cost, self.learning_rate_node,
+                            self.net.gradients_node),
                         feed_dict={self.net.x: batch_x,
                                    self.net.y: batch_y,
                                    self.net.keep_prob: dropout})
 
                     if self.net.summaries and self.norm_grads:
-                        avg_gradients = _update_avg_gradients(avg_gradients, gradients, step)
-                        norm_gradients = [np.linalg.norm(gradient) for gradient in avg_gradients]
+                        avg_gradients = _update_avg_gradients(avg_gradients,
+                            gradients, step)
+                        norm_gradients = [np.linalg.norm(gradient) \
+                            for gradient in avg_gradients]
                         self.norm_gradients_node.assign(norm_gradients).eval()
 
                     if step % display_step == 0:
-                        self.output_minibatch_stats(sess, summary_writer, step, batch_x, batch_y)
+                        self.output_minibatch_stats(sess, summary_writer, step,
+                            batch_x, batch_y)
 
                     total_loss += loss
 
                 self.output_epoch_stats(epoch, total_loss, training_iters, lr)
                 #self.store_prediction(sess, test_x, test_y, "epoch_%s" % epoch)
 
-                save_path = self.net.save(sess, save_path)
+                self.net.save(sess, save_path)
             
             logging.info("Optimization Finished!")
 
@@ -469,11 +475,12 @@ class Trainer(object):
         pred_shape = prediction.shape
 
         loss = sess.run(self.net.cost, feed_dict={self.net.x: batch_x,
-                                                self.net.y: util.crop_to_shape(batch_y, pred_shape),
-                                                self.net.keep_prob: 1.})
+            self.net.y: util.crop_to_shape(batch_y, pred_shape),
+            self.net.keep_prob: 1.})
 
         logging.info("Verification error= {:.1f}%, loss= {:.4f}".format(
-            error_rate(prediction, util.crop_to_shape(batch_y, prediction.shape)), loss))
+            error_rate(prediction,
+                util.crop_to_shape(batch_y, prediction.shape)), loss))
 
         # TODO: debug this.
         #img = util.combine_img_prediction(batch_x, batch_y, prediction)
@@ -484,18 +491,17 @@ class Trainer(object):
 
     def output_epoch_stats(self, epoch, total_loss, training_iters, lr):
         logging.info(
-            "Epoch {:}, Average loss: {:.4f}, learning rate: {:.4f}".format(epoch, (total_loss / training_iters), lr))
+            "Epoch {:}, Average loss: {:.4f}, learning rate: {:.4f}".format(epoch,
+            (total_loss / training_iters), lr))
 
 
-    def output_minibatch_stats(self, sess, summary_writer, step, batch_x, batch_y):
+    def output_minibatch_stats(self, sess, summary_writer, step, batch_x,
+            batch_y):
         # Calculate batch loss and accuracy
         summary_str, loss, acc, predictions = sess.run([self.summary_op,
-                                                        self.net.cost,
-                                                        self.net.accuracy,
-                                                        self.net.predicter],
-                                                        feed_dict={self.net.x: batch_x,
-                                                                self.net.y: batch_y,
-                                                                self.net.keep_prob: 1.})
+            self.net.cost, self.net.accuracy, self.net.predicter],
+                feed_dict={self.net.x: batch_x, self.net.y: batch_y,
+                    self.net.keep_prob: 1.})
         summary_writer.add_summary(summary_str, step)
         summary_writer.flush()
         logging.info(
