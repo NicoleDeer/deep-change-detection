@@ -44,9 +44,9 @@ class ImageData():
         
         # Image pairs to detect changes.
         # RGB images.
-        b3_imgs = [imread(os.path.join(data_dir, 'images', img_name, 'pair',
+        self.b3_imgs = [imread(os.path.join(data_dir, 'images', img_name, 'pair',
             'img{}.png'.format(i))) for i in [1, 2]]
-        self.feature = np.concatenate(b3_imgs, axis=2)/255.0
+        self.feature = np.concatenate(self.b3_imgs, axis=2)/255.0
 
         # Label is a change map.
         self.label = imread(os.path.join(data_dir, 'labels', img_name, 'cm',
@@ -113,7 +113,8 @@ def gen_train_batch(data_dir, train=True):
 def get_test_image(data_dir, img_name):
     img_data = ImageData(data_dir, img_name)
     return process_img(img_data.feature)[np.newaxis, ...], \
-        process_labels(img_data.label)[np.newaxis, ...]
+        process_labels(img_data.label)[np.newaxis, ...], \
+        img_data.b3_imgs[0][np.newaxis, ...]
 
 
 def process_img(img):
