@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import os
 import pandas as pd
+import random
 from random import randint
 import sys
 import tifffile
@@ -45,11 +46,12 @@ class ImageData():
         # RGB images.
         b3_imgs = [imread(os.path.join(data_dir, 'images', img_name, 'pair',
             'img{}.png'.format(i))) for i in [1, 2]]
-        self.feature = np.concatenate(b3_imgs, axis=2)
+        self.feature = np.concatenate(b3_imgs, axis=2)/255.0
 
         # Label is a change map.
         self.label = imread(os.path.join(data_dir, 'labels', img_name, 'cm',
-            'cm.png'))[:, :, 0][:, :, np.newaxis]
+            'cm.png'))[:, :, 0][:, :, np.newaxis]/255.0
+
         self.img_size = self.label.shape
 
         self.nr_total_patches = self.img_size[0]*self.img_size[1]/float(
@@ -84,6 +86,12 @@ def get_all_data(data_dir, train):
     return imgs, total_nr_patcehs
 
 
+def shuffle_two_lists(a, b):
+    z = zip(a, b)
+    random.shuffle(z)
+    a[:], b[:] = zip(*z)
+
+
 def gen_train_batch(data_dir, train=True):
     imgs, total_nr_patcehs = get_all_data(data_dir, train)
     i_batch = 0
@@ -96,16 +104,29 @@ def gen_train_batch(data_dir, train=True):
             for _ in range(nr_patches):
                 img, label = rand_crop(img_data.feature, img_data.label,
                     patch_size, patch_size)
-                features.append(img/127.5 - 1)
-                labels.append(label/255.0)
-        yield np.stack(features, axis=0), process_labels(np.stack(labels, axis=0))
+                features.append(process_img(img))
+                labels.append(process_labels(label))
+        shuffle_two_lists(features, labels)
+        yield np.stack(features, axis=0), np.stack(labels, axis=0)
 
 
-def get_test_image(data_dir):
-    img_data = ImageData(data_dir, 'chongqing')
-    return img_data.feature[np.newaxis, :, :, :]/127.5 - 1, process_labels(img_data.label/255.0)
+def get_test_image(data_dir, img_name):
+    img_data = ImageData(data_dir, img_name)
+    return process_img(img_data.feature)[np.newaxis, ...], \
+        process_labels(img_data.label)[np.newaxis, ...]
+
+
+def process_img(img):
+    # normalization
+    #data = np.clip(data, v_min, v_max)
+    img -= np.amin(img)
+    amax = np.amax(img)
+    if amax != 0:
+        img /= amax
+    return img
 
 
 def process_labels(label):
-    assert label.shape[3] == 1
-    return np.concatenate([-label, label], axis=3)
+    assert label.shape[2] == 1
+    label = label.astype(np.bool)
+    return np.concatenate([~label, label], axis=2).astype(np.float)

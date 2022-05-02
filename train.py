@@ -8,20 +8,21 @@ from tf_unet import unet
 from utils import gen_train_batch, get_test_image
 
 
-data_dir = '~/Desktop/lu/onera_data'
+data_dir = '/home/onera'
 
 def train():
     data_provider = gen_train_batch(data_dir)
 
-    net = unet.Unet(channels=6, n_class=2, 
+    net = unet.Unet(channels=6, n_class=2,
             layers=3, features_root=64,
-            cost_kwargs=dict(regularizer=0.001),
+            cost_kwargs=dict(regularizer=0.001, class_weights=[1, 100]),
         )
 
     trainer = unet.Trainer(net, optimizer="adam",
         opt_kwargs=dict(learning_rate=0.01))
     path = trainer.train(data_provider, output_path="models", 
-        training_iters=100, epochs=100, dropout=0.5, display_step=10)
+        training_iters=100, epochs=100, dropout=0.5, display_step=10,
+        restore=True)
 
     x_test, y_test = get_test_image('data_dir')
     prediction = net.predict(path, x_test)

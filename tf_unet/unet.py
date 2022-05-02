@@ -185,7 +185,7 @@ class Unet(object):
     :param cost_kwargs: (optional) kwargs passed to the cost function. See Unet._get_cost for more options
     """
 
-    def __init__(self, channels, n_class, cost="cross_entropy", cost_kwargs={}, **kwargs):
+    def __init__(self, channels, n_class, cost_name="cross_entropy", cost_kwargs={}, **kwargs):
         tf.reset_default_graph()
 
         self.n_class = n_class
@@ -195,9 +195,10 @@ class Unet(object):
         self.y = tf.placeholder("float", shape=[None, None, None, n_class], name="y")
         self.keep_prob = tf.placeholder(tf.float32, name="dropout_probability")  # dropout (keep probability)
 
-        logits, self.variables, self.offset = create_conv_net(self.x, self.keep_prob, channels, n_class, **kwargs)
+        logits, self.variables, self.offset = create_conv_net(
+            self.x, self.keep_prob, channels, n_class, **kwargs)
 
-        self.cost = self._get_cost(logits, cost, cost_kwargs)
+        self.cost = self._get_cost(logits, self.y, cost_name, cost_kwargs)
 
         self.gradients_node = tf.gradients(self.cost, self.variables)
 
@@ -211,7 +212,7 @@ class Unet(object):
                                                tf.reshape(self.predicter, [-1, n_class]))
 
 
-    def _get_cost(self, logits, cost_name, cost_kwargs):
+    def _get_cost(self, logits, y, cost_name, cost_kwargs):
         """
         Constructs the cost function, either cross_entropy, weighted cross_entropy or dice_coefficient.
         Optional arguments are:
@@ -221,7 +222,7 @@ class Unet(object):
 
         with tf.name_scope("cost"):
             flat_logits = tf.reshape(logits, [-1, self.n_class])
-            flat_labels = tf.reshape(self.y, [-1, self.n_class])
+            flat_labels = tf.reshape(y, [-1, self.n_class])
             if cost_name == "cross_entropy":
                 class_weights = cost_kwargs.pop("class_weights", None)
 
@@ -234,17 +235,17 @@ class Unet(object):
                     loss_map = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flat_logits,
                                                                           labels=flat_labels)
                     weighted_loss = tf.multiply(loss_map, weight_map)
-
                     loss = tf.reduce_mean(weighted_loss)
 
                 else:
                     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=flat_logits,
                                                                                      labels=flat_labels))
+
             elif cost_name == "dice_coefficient":
                 eps = 1e-5
                 prediction = pixel_wise_softmax(logits)
-                intersection = tf.reduce_sum(prediction * self.y)
-                union = eps + tf.reduce_sum(prediction) + tf.reduce_sum(self.y)
+                intersection = tf.reduce_sum(prediction * y)
+                union = eps + tf.reduce_sum(prediction) + tf.reduce_sum(y)
                 loss = -(2 * intersection / (union))
 
             else:
@@ -343,6 +344,7 @@ class Trainer(object):
             optimizer = tf.train.MomentumOptimizer(
                 learning_rate=self.learning_rate_node, momentum=momentum,
                     **self.opt_kwargs).minimize(self.net.cost, global_step=global_step)
+
         elif self.optimizer == "adam":
             learning_rate = self.opt_kwargs.pop("learning_rate", 0.001)
             self.learning_rate_node = tf.Variable(learning_rate, name="learning_rate")
@@ -505,7 +507,7 @@ class Trainer(object):
         summary_writer.add_summary(summary_str, step)
         summary_writer.flush()
         logging.info(
-            "Iter {:}, Minibatch Loss= {:.4f}, Training Accuracy= {:.4f}, Minibatch error= {:.1f}%".format(
+            "Iter {:}, Minibatch Loss= {:.6f}, Training Accuracy= {:.4f}, Minibatch error= {:.4f}%".format(
                 step, loss, acc, error_rate(predictions, batch_y)))
 
 
