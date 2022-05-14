@@ -104,16 +104,16 @@ def gen_train_batch(data_dir, train=True):
             for _ in range(nr_patches):
                 img, label = rand_crop(img_data.feature, img_data.label,
                     patch_size, patch_size)
-                features.append(process_img(img))
-                labels.append(process_labels(label))
+                features.append(img)
+                labels.append(label)
         shuffle_two_lists(features, labels)
         yield np.stack(features, axis=0), np.stack(labels, axis=0)
 
 
 def get_test_image(data_dir, img_name):
     img_data = ImageData(data_dir, img_name)
-    return process_img(img_data.feature)[np.newaxis, ...], \
-        process_labels(img_data.label)[np.newaxis, ...], \
+    return img_data.feature[np.newaxis, ...], \
+        img_data.label[np.newaxis, ...], \
         img_data.b3_imgs[0][np.newaxis, ...]
 
 

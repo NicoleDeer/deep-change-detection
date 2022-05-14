@@ -12,7 +12,6 @@ the desired class for training.
 import tensorflow as tf
 import threading
 import tensorflow.contrib.slim as slim
-from utils import data_utils, train_utils
 import time
 
 
@@ -173,6 +172,7 @@ def build_loss(x_in, y_in, H, phase):
     start_ind = H['start_ind']
     valid_size = H['valid_size']
     num_class = H['num_class']
+    class_type = H['class_type']
     epsilon = H['epsilon']
     apply_class_balancing = H['apply_class_balancing']
 
@@ -185,9 +185,11 @@ def build_loss(x_in, y_in, H, phase):
     pred_crop = tf.cast(tf.slice(pred,
                                  begin=[0, start_ind, start_ind],
                                  size=[-1, valid_size, valid_size]), tf.float32)
-    if apply_class_balancing:
-        class_weight = data_utils.calculate_class_weights()\
-            [data_utils.CLASSES[class_type + 1]]
+
+    #if apply_class_balancing:
+    #    class_weight = data_utils.calculate_class_weights()\
+    #        [data_utils.CLASSES[class_type + 1]]
+
     # formulation of weighted cross entropy loss, dice index: https://arxiv.org/pdf/1707.03237.pdf
     if H['loss_function'] == 'cross_entropy':
         if apply_class_balancing:

@@ -142,7 +142,8 @@ def create_conv_net(x, keep_prob, channels, n_class, layers=3, features_root=16,
         weight = weight_variable([1, 1, features_root, n_class], stddev)
         bias = bias_variable([n_class], name="bias")
         conv = conv2d(in_node, weight, bias, tf.constant(1.0))
-        output_map = tf.nn.relu(conv)
+        #output_map = tf.nn.relu(conv)
+        output_map = conv
         up_h_convs["out"] = output_map
 
     if summaries:
@@ -203,8 +204,10 @@ class Unet(object):
         self.gradients_node = tf.gradients(self.cost, self.variables)
 
         with tf.name_scope("results"):
-            self.predicter = pixel_wise_softmax(logits)
-            self.correct_pred = tf.equal(tf.argmax(self.predicter, 3), tf.argmax(self.y, 3))
+            #self.predicter = pixel_wise_softmax(logits)
+            self.predicter = tf.sigmoid(logits)
+            #self.correct_pred = tf.equal(tf.argmax(self.predicter, 3), tf.argmax(self.y, 3))
+            self.correct_pred = tf.equal(tf.cast(tf.greater(self.predicter, 0.5), tf.float32), self.y)
             self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
 
         with tf.name_scope("cross_entropy"):
@@ -224,22 +227,22 @@ class Unet(object):
             flat_logits = tf.reshape(logits, [-1, self.n_class])
             flat_labels = tf.reshape(y, [-1, self.n_class])
             if cost_name == "cross_entropy":
-                class_weights = cost_kwargs.pop("class_weights", None)
+                class_weight = cost_kwargs.pop("class_weight", None)
 
-                if class_weights is not None:
-                    class_weights = tf.constant(np.array(class_weights, dtype=np.float32))
-
-                    weight_map = tf.multiply(flat_labels, class_weights)
-                    weight_map = tf.reduce_sum(weight_map, axis=1)
-
-                    loss_map = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flat_logits,
-                                                                          labels=flat_labels)
-                    weighted_loss = tf.multiply(loss_map, weight_map)
-                    loss = tf.reduce_mean(weighted_loss)
+                if class_weight is not None:
+                    #class_weights = tf.constant(np.array(class_weights, dtype=np.float32))
+                    #weight_map = tf.multiply(flat_labels, class_weights)
+                    #weight_map = tf.reduce_sum(weight_map, axis=1)
+                    #loss_map = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flat_logits,
+                    #                                                      labels=flat_labels)
+                    #weighted_loss = tf.multiply(loss_map, weight_map)
+                    #loss = tf.reduce_mean(weighted_loss)
+                    loss = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(
+                        logits=flat_logits, targets=flat_labels, pos_weight=1./class_weight))
 
                 else:
-                    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=flat_logits,
-                                                                                     labels=flat_labels))
+                    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
+                        logits=flat_logits, labels=flat_labels))
 
             elif cost_name == "dice_coefficient":
                 eps = 1e-5
@@ -349,7 +352,7 @@ class Trainer(object):
             learning_rate = self.opt_kwargs.pop("learning_rate", 0.001)
             self.learning_rate_node = tf.Variable(learning_rate, name="learning_rate")
 
-            optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_node,
+            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate,
                 **self.opt_kwargs).minimize(self.net.cost, global_step=global_step)
 
         return optimizer
@@ -526,8 +529,8 @@ def error_rate(predictions, labels):
     """
 
     return 100.0 - (
-            100.0 *
-            np.sum(np.argmax(predictions, 3) == np.argmax(labels, 3)) /
+            100.0 * np.sum((predictions > 0.5).astype(np.float32) == labels) /
+            #np.sum(np.argmax(predictions, 3) == np.argmax(labels, 3)) /
             (predictions.shape[0] * predictions.shape[1] * predictions.shape[2]))
 
 

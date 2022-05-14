@@ -32,9 +32,9 @@ def visualize_change(img, pred, label):
     TP = pred & label
     img[TP] = 255
     # FP = blue.
-    patch = img[(pred == 1) & (label == 0)] = np.array([255, 0, 0])
+    img[(pred == 1) & (label == 0)] = np.array([255, 0, 0])
     # FN = red.
-    patch = img[(pred == 0) & (label == 1)] = np.array([0, 0, 255])
+    img[(pred == 0) & (label == 1)] = np.array([0, 0, 255])
 
     print 'Prevision', precision(pred, label)
     print 'Recall', recall(pred, label)

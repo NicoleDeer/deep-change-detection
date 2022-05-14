@@ -8,7 +8,7 @@ from utils import get_test_image
 
 
 def predict(model_path):
-    net = unet.Unet(channels=6, n_class=2, 
+    net = unet.Unet(channels=6, n_class=1, 
             layers=3, features_root=64,
             cost_kwargs=dict(regularizer=0.001),
         )
@@ -34,13 +34,14 @@ def predict(model_path):
         
         #prediction = np.argmax(np.squeeze(prediction, axis=0), 2)*255.0
         #prediction = np.repeat(prediction[:, :, np.newaxis], 3, axis=2).astype(np.uint8)
-        pred = np.argmax(np.squeeze(prediction, axis=0), 2).astype(np.bool)
+        pred = (np.squeeze(prediction, axis=0) > 0.5).astype(np.bool)
         
         #prediction = prediction[0, :, :, 1]*255.0
         #prediction = np.repeat(prediction[:, :, np.newaxis], 3, axis=2).astype(np.uint8)
         #print(prediction.shape)
         
-        cv2.imshow('image', visualize_change(batch_img[0, ...], pred, batch_y[0, ..., 1]))
+        cv2.imshow('image', visualize_change(batch_img[0, ...],
+            pred[..., 0], batch_y.astype(np.bool)[0, ..., 0]))
         cv2.waitKey(0)
 
 

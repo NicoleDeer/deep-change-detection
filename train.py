@@ -13,13 +13,13 @@ data_dir = '/home/onera'
 def train():
     data_provider = gen_train_batch(data_dir)
 
-    net = unet.Unet(channels=6, n_class=2,
+    net = unet.Unet(channels=6, n_class=1,
             layers=3, features_root=64,
-            cost_kwargs=dict(regularizer=0.001, class_weights=[1, 100]),
+            cost_kwargs=dict(regularizer=0.001, class_weight=0.03),
         )
 
     trainer = unet.Trainer(net, optimizer="adam",
-        opt_kwargs=dict(learning_rate=0.01))
+        opt_kwargs=dict(learning_rate=0.0001))
     path = trainer.train(data_provider, output_path="models", 
         training_iters=100, epochs=100, dropout=0.5, display_step=10,
         restore=True)
